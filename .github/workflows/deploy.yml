@@ -1,0 +1,36 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE: calculator-for-accounts
+  CONTAINER: calculator-for-accounts
+  HOST_PORT: 8080
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
+
+      - name: Replace running container
+        run: |
+          docker rm -f $CONTAINER 2>/dev/null || true
+          docker run -d --name $CONTAINER --restart unless-stopped -p $HOST_PORT:80 $IMAGE:latest
+
+      - name: Health check
+        run: curl -fsS --retry 5 --retry-delay 2 --retry-connrefused http://localhost:$HOST_PORT/ > /dev/null
+
+      - name: Remove old images
+        run: docker image prune -f

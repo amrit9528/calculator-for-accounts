@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bill Weight Calculator</title>
+<meta name="theme-color" content="#0b7a6e">
+<style>body{margin:0}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root{
+    --bg:#eef3f1;
+    --surface:#ffffff;
+    --surface-2:#f5f8f7;
+    --line:#d9e3df;
+    --ink:#0e2420;
+    --ink-soft:#4d635d;
+    --ink-faint:#71857f;
+    --primary:#0b7a6e;
+    --primary-ink:#ffffff;
+    --primary-soft:#d8f0eb;
+    --amber:#b45f06;
+    --amber-soft:#fdeccd;
+    --up:#0b7a6e;
+    --up-soft:#d8f0eb;
+    --down:#b3372a;
+    --down-soft:#fbe0dc;
+    --shadow:0 1px 2px rgba(14,36,32,.06),0 8px 24px -12px rgba(14,36,32,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a1311;--surface:#111e1b;--surface-2:#162622;--line:#25403a;
+      --ink:#e8f4f0;--ink-soft:#a5bdb6;--ink-faint:#7f9a92;
+      --primary:#35d0b9;--primary-ink:#04211c;--primary-soft:#163a34;
+      --amber:#f7b955;--amber-soft:#3b2d12;
+      --up:#5fe0c9;--up-soft:#163a34;--down:#ff9a8a;--down-soft:#3d1f1b;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0a1311;--surface:#111e1b;--surface-2:#162622;--line:#25403a;
+    --ink:#e8f4f0;--ink-soft:#a5bdb6;--ink-faint:#7f9a92;
+    --primary:#35d0b9;--primary-ink:#04211c;--primary-soft:#163a34;
+    --amber:#f7b955;--amber-soft:#3b2d12;
+    --up:#5fe0c9;--up-soft:#163a34;--down:#ff9a8a;--down-soft:#3d1f1b;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:"Plus Jakarta Sans",system-ui,sans-serif;
+    padding-inline:16px;padding-block:28px 48px;
+    display:flex;justify-content:center;
+  }
+  .app{width:100%;max-width:960px;display:flex;flex-direction:column;gap:20px;}
+
+  .top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;}
+  .top h1{font-size:1.65rem;font-weight:800;letter-spacing:-0.02em;margin:0 0 4px;}
+  .top p{margin:0;color:var(--ink-soft);font-size:0.9rem;}
+
+  .label{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-faint);}
+  .seg{
+    display:inline-flex;background:var(--surface);border:1px solid var(--line);
+    border-radius:10px;padding:3px;gap:2px;box-shadow:var(--shadow);
+  }
+  .seg button{
+    font:inherit;font-size:0.85rem;font-weight:600;color:var(--ink-soft);background:none;border:none;
+    padding:7px 14px;border-radius:8px;cursor:pointer;
+  }
+  .seg button[aria-pressed="true"]{background:var(--primary);color:var(--primary-ink);}
+  .seg button:focus-visible,.add:focus-visible,.icon-btn:focus-visible,.cp:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+  .unit-wrap{display:flex;flex-direction:column;gap:6px;}
+
+  .rules{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;
+    background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;
+  }
+  .chip{
+    font-family:"JetBrains Mono",monospace;font-size:0.78rem;background:var(--surface-2);
+    border-radius:6px;padding:3px 8px;color:var(--ink-soft);
+  }
+  .chip b{color:var(--amber);font-weight:700;}
+
+  .item{
+    background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:16px;
+  }
+  .item-head{display:flex;align-items:center;gap:10px;}
+  .item-head input{
+    flex:1;min-width:0;font-size:1.1rem;font-weight:700;background:transparent;border:none;
+    border-bottom:2px solid var(--line);border-radius:0;padding:4px 2px;color:var(--ink);
+  }
+  .item-head input:focus{outline:none;border-color:var(--primary);}
+  .tag{
+    font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;
+    background:var(--amber-soft);color:var(--amber);border-radius:6px;padding:3px 8px;white-space:nowrap;
+  }
+  .icon-btn{
+    background:none;border:1px solid var(--line);color:var(--ink-faint);border-radius:8px;
+    width:32px;height:32px;cursor:pointer;font-size:0.95rem;
+  }
+  .icon-btn:hover{color:var(--down);border-color:var(--down);}
+
+  .fields{display:grid;grid-template-columns:1.5fr 1.5fr 1fr;gap:14px;}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .field label{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-faint);}
+  input[type="number"],select{
+    font:inherit;font-size:0.98rem;font-weight:600;color:var(--ink);background:var(--surface-2);
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0;
+  }
+  input[type="number"]{font-family:"JetBrains Mono",monospace;}
+  input:focus,select:focus{outline:2px solid var(--primary);outline-offset:0;border-color:transparent;}
+  .group{display:flex;gap:6px;}
+  .group input{flex:1.2;}
+  .group select{flex:1;padding-inline:8px;}
+
+  .trace{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:0.86rem;color:var(--ink-soft);
+    background:var(--surface-2);border-radius:10px;padding:9px 12px;
+  }
+  .trace .mono{font-family:"JetBrains Mono",monospace;font-weight:600;color:var(--ink);}
+  .pill{font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--up-soft);color:var(--up);}
+  .pill.down{background:var(--down-soft);color:var(--down);}
+  .pill.zero{background:var(--primary-soft);color:var(--primary);}
+
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .tile{
+    position:relative;border:1px solid var(--line);border-radius:12px;padding:12px 14px 14px;
+    display:flex;flex-direction:column;gap:6px;min-width:0;
+  }
+  .tile.main{background:var(--primary);border-color:var(--primary);color:var(--primary-ink);}
+  .tile .label{color:inherit;opacity:.75;}
+  .tile .val{
+    font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;
+    font-size:1.45rem;font-weight:700;letter-spacing:-0.02em;overflow-wrap:anywhere;
+  }
+  .tile .val small{font-size:0.8rem;font-weight:600;opacity:.7;margin-left:3px;}
+  .cp{
+    align-self:flex-start;font:inherit;font-size:0.7rem;font-weight:700;color:var(--ink-soft);
+    background:var(--surface-2);border:none;border-radius:6px;padding:3px 9px;cursor:pointer;
+  }
+  .cp:hover{color:var(--primary);}
+  .tile.main .cp{background:rgba(255,255,255,.18);color:inherit;}
+  .cp.done{background:var(--up-soft);color:var(--up);}
+
+  .add{
+    align-self:flex-start;font:inherit;font-weight:700;font-size:0.9rem;color:var(--primary);
+    background:var(--surface);border:1.5px dashed var(--primary);border-radius:12px;padding:11px 18px;cursor:pointer;
+  }
+  .add:hover{background:var(--primary-soft);}
+
+  .summary{
+    background:var(--ink);color:var(--bg);border-radius:16px;padding:20px 22px;
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;
+  }
+  .summary .label{color:inherit;opacity:.6;margin-bottom:6px;}
+  .summary .v{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:1.35rem;font-weight:700;}
+  .summary .v.pos{color:#ff9a8a;}
+  .summary .v.neg{color:#5fe0c9;}
+  :root[data-theme="dark"] .summary,
+  :root:not([data-theme="light"]) .summary{background:var(--surface-2);color:var(--ink);border:1px solid var(--line);}
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]) .summary{background:var(--ink);color:#eef3f1;border:none;}
+  }
+
+  .sum-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;}
+  .sum-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:16px 18px;border-bottom:1px solid var(--line);}
+  .sum-head h2{margin:0;font-size:1.05rem;font-weight:800;}
+  .count{font-size:0.8rem;font-weight:700;background:var(--primary-soft);color:var(--primary);border-radius:999px;padding:4px 12px;}
+  .sum-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+  .dl{
+    font:inherit;font-size:0.82rem;font-weight:700;color:var(--primary);background:var(--surface);
+    border:1.5px solid var(--primary);border-radius:9px;padding:7px 14px;cursor:pointer;
+  }
+  .dl.primary{background:var(--primary);color:var(--primary-ink);}
+  .dl:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+  .dl:disabled{opacity:.6;cursor:default;}
+  .dl-msg{font-size:0.8rem;color:var(--ink-soft);padding:0 18px;}
+  .dl-msg:not(:empty){padding-top:10px;}
+  .sum-scroll{overflow-x:auto;}
+  .sum-table{width:100%;border-collapse:collapse;min-width:760px;font-size:0.88rem;}
+  .sum-table th{
+    text-align:right;font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+    color:var(--ink-faint);padding:10px 14px;background:var(--surface-2);white-space:nowrap;
+  }
+  .sum-table td{padding:10px 14px;border-top:1px solid var(--line);text-align:right;white-space:nowrap;
+    font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;}
+  .sum-table th:first-child,.sum-table td:first-child{text-align:left;width:44px;color:var(--ink-faint);}
+  .sum-table th:nth-child(2),.sum-table td:nth-child(2){text-align:left;font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:600;}
+  .sum-table tfoot td{background:var(--primary-soft);color:var(--ink);font-weight:700;border-top:2px solid var(--primary);}
+  .sum-empty{padding:22px 18px;color:var(--ink-faint);font-size:0.9rem;}
+
+  @media (max-width:720px){
+    .fields{grid-template-columns:1fr 1fr;}
+    .fields .field:first-child{grid-column:1/-1;}
+    .tiles{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:640px){
+    body{padding-inline:12px;padding-block:18px 32px;}
+    .app{gap:16px;}
+    .top h1{font-size:1.35rem;}
+    .unit-wrap{width:100%;}
+    .seg{display:flex;width:100%;}
+    .seg button{flex:1;padding:10px 6px;}
+    input[type="number"],select,.item-head input{font-size:16px;}
+    .item{padding:14px;border-radius:14px;gap:14px;}
+    .tile .val{font-size:1.2rem;}
+    .tile{padding:10px 12px 12px;}
+    .summary{padding:16px;gap:14px 12px;grid-template-columns:1fr 1fr;}
+    .summary .v{font-size:1.1rem;}
+    .sum-head{padding:14px;}
+    .sum-actions{width:100%;}
+    .sum-actions .dl{flex:1;padding:11px 10px;}
+    .sum-actions .count{width:100%;text-align:center;}
+    .add{width:100%;text-align:center;padding:14px;}
+    .sum-scroll{overflow:visible;}
+    .sum-table{min-width:0;}
+    .sum-table thead{display:none;}
+    .sum-table,.sum-table tbody,.sum-table tfoot{display:block;}
+    .sum-table tr{
+      display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:12px 14px;
+      border-top:1px solid var(--line);
+    }
+    .sum-table td{
+      display:flex;flex-direction:column;gap:2px;border:none;padding:0;text-align:left;
+      white-space:normal;background:none;
+    }
+    .sum-table td::before{
+      content:attr(data-label);font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-size:0.62rem;
+      font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink-faint);
+    }
+    .sum-table td:first-child{width:auto;}
+    .sum-table td[data-label="#"]{display:none;}
+    .sum-table td[data-label="Item"],.sum-table td[data-label="Total"]{grid-column:1/-1;font-size:1rem;}
+    .sum-table td[data-label="Item"]::before,.sum-table td[data-label="Total"]::before{content:none;}
+    .sum-table td.foot-blank{display:none;}
+    .sum-table tfoot tr{background:var(--primary-soft);border-top:2px solid var(--primary);}
+    .sum-table tfoot td{background:none;border:none;}
+  }
+  @media (max-width:360px){
+    .tiles{grid-template-columns:1fr;}
+  }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div>
+      <h1>Bill Weight Calculator</h1>
+      <p>Total amount ÷ rate → total weight → bags and loose kg</p>
+    </div>
+    <div class="unit-wrap">
+      <span class="label">Show weight in</span>
+      <div class="seg" id="seg" role="group" aria-label="Weight unit">
+        <button type="button" data-unit="kg" aria-pressed="true">Kilograms</button>
+        <button type="button" data-unit="quintal" aria-pressed="false">Quintal</button>
+        <button type="button" data-unit="gram" aria-pressed="false">Grams</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rules">
+    <span class="label">Rounding (total kg)</span>
+    <span id="ruleDemo" style="display:contents"></span>
+  </div>
+
+  <div id="items" style="display:flex;flex-direction:column;gap:16px"></div>
+
+  <button class="add" id="addRow" type="button">+ Add item</button>
+
+  <div class="summary" id="summary"></div>
+
+  <section class="sum-card">
+    <div class="sum-head">
+      <h2>Bill summary</h2>
+      <div class="sum-actions">
+        <span class="count" id="count">0 items</span>
+        <button type="button" class="dl primary" id="dlPdf" hidden>Download PDF</button>
+        <button type="button" class="dl" id="dlCsv" hidden>Download CSV</button>
+      </div>
+    </div>
+    <div class="dl-msg" id="dlMsg" role="status"></div>
+    <div class="sum-scroll" id="sumTable"></div>
+  </section>
+</div>
+
+<script>
+  const KG_PER = {gram:0.001, kg:1, quintal:100};
+  const OUT_LABEL = {kg:"kg", quintal:"qntl", gram:"g"};
+  const itemsEl = document.getElementById("items");
+  const summaryEl = document.getElementById("summary");
+  let outUnit = "kg";
+  let n = 0;
+
+  function customRound(x){
+    if(!isFinite(x)) return 0;
+    x = Math.round(Math.abs(x));
+    const last = x % 10, base = x - last;
+    if(last <= 3) return base;
+    if(last <= 8) return base + 5;
+    return base + 10;
+  }
+  const fmt = (x, d=2) => x.toLocaleString("en-IN", {maximumFractionDigits:d});
+  const inr = x => "₹" + fmt(x);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  function makeItem(d){
+    const id = ++n;
+    const el = document.createElement("article");
+    el.className = "item";
+    el.dataset.id = id;
+    el.innerHTML = `
+      <div class="item-head">
+        <input type="text" id="item-${id}" value="${esc(d.item)}" placeholder="Item name, e.g. Wheat" aria-label="Item name">
+        ${d.example ? '<span class="tag">Example</span>' : ''}
+        <button class="icon-btn" type="button" title="Remove item" aria-label="Remove item">✕</button>
+      </div>
+      <div class="fields">
+        <div class="field">
+          <label for="rate-${id}">Rate (₹) per</label>
+          <div class="group">
+            <input type="number" id="rate-${id}" value="${d.rate}" min="0" step="any" inputmode="decimal">
+            <select id="rateunit-${id}" aria-label="Rate per unit">
+              ${["gram","kg","quintal"].map(u=>`<option value="${u}" ${u===d.rateUnit?"selected":""}>${u}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="total-${id}">Total amount (₹)</label>
+          <input type="number" id="total-${id}" value="${d.total}" min="0" step="any" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="bag-${id}">Kg per bag</label>
+          <input type="number" id="bag-${id}" value="${d.bag}" min="1" step="any" inputmode="decimal">
+        </div>
+      </div>
+      <div class="trace" id="trace-${id}"></div>
+      <div class="tiles" id="tiles-${id}"></div>
+    `;
+    el.querySelector(".icon-btn").addEventListener("click", () => { el.remove(); recalc(); });
+    el.querySelectorAll("input,select").forEach(i => i.addEventListener("input", recalc));
+    itemsEl.appendChild(el);
+  }
+
+  function tile(label, value, unit, copy, main){
+    return `<div class="tile ${main?"main":""}">
+      <span class="label">${label}</span>
+      <span class="val">${value}${unit?`<small>${unit}</small>`:""}</span>
+      <button type="button" class="cp" data-copy="${copy}">Copy</button>
+    </div>`;
+  }
+
+  function recalc(){
+    let sumTotal = 0, sumAdj = 0, sumKg = 0, sumBags = 0, sumLoose = 0, valid = false;
+    const list = [];
+
+    itemsEl.querySelectorAll(".item").forEach(el => {
+      const id = el.dataset.id;
+      const g = k => document.getElementById(`${k}-${id}`).value;
+      const rate = parseFloat(g("rate")), total = parseFloat(g("total")), bag = parseFloat(g("bag"));
+      const traceEl = document.getElementById(`trace-${id}`);
+      const tilesEl = document.getElementById(`tiles-${id}`);
+
+      if(!(rate > 0) || isNaN(total)){
+        traceEl.innerHTML = "Enter a rate and total amount to see the weight.";
+        tilesEl.innerHTML = "";
+        return;
+      }
+
+      const ratePerKg = rate / KG_PER[g("rateunit")];
+      const rawKg = total / ratePerKg;
+      const kg = customRound(rawKg);
+      const diff = kg - Math.round(rawKg);
+      const hasBag = bag > 0;
+      const bags = hasBag ? Math.floor(kg / bag) : 0;
+      const loose = hasBag ? +(kg - bags * bag).toFixed(3) : kg;
+      const weight = kg / KG_PER[outUnit];
+      const adj = kg * ratePerKg;
+
+      traceEl.innerHTML = `
+        <span>Raw</span><span class="mono">${fmt(rawKg)} kg</span>
+        <span>→ rounded</span><span class="mono">${fmt(kg)} kg</span>
+        ${diff ? `<span class="pill ${diff<0?"down":""}">${diff>0?"+":""}${diff} kg</span>` : `<span class="pill zero">no change</span>`}
+        <span style="margin-left:auto">Amount changes by <span class="mono">${adj-total>=0?"+":""}${inr(adj-total)}</span></span>`;
+
+      tilesEl.innerHTML =
+        tile("Bags", hasBag ? fmt(bags) : "—", "", bags) +
+        tile("Loose", fmt(loose), "kg", loose) +
+        tile("Weight", fmt(weight,3), OUT_LABEL[outUnit], +weight.toFixed(3)) +
+        tile("Adjusted amount", inr(adj), "", +adj.toFixed(2), true);
+
+      sumTotal += total; sumAdj += adj; sumKg += kg; sumBags += bags; sumLoose += loose; valid = true;
+      list.push({name: g("item") || "Untitled", rate, rateUnit: g("rateunit"), total, bag, bags: hasBag ? bags : null, loose, kg, weight, adj});
+    });
+
+    snapshot = {list, sumTotal, sumAdj, sumKg, sumBags, sumLoose, unit: outUnit};
+    document.getElementById("count").textContent = `${list.length} item${list.length===1?"":"s"}`;
+    const u = OUT_LABEL[outUnit];
+    document.getElementById("sumTable").innerHTML = list.length ? `
+      <table class="sum-table">
+        <thead><tr><th>#</th><th>Item</th><th>Rate</th><th>Entered (₹)</th><th>Bags</th><th>Loose (kg)</th><th>Total kg</th><th>Weight (${u})</th><th>Adjusted (₹)</th></tr></thead>
+        <tbody>${list.map((r,i) => `<tr>
+          <td data-label="#">${i+1}</td><td data-label="Item">${esc(r.name)}</td><td data-label="Rate">${fmt(r.rate)}/${r.rateUnit}</td><td data-label="Entered (₹)">${fmt(r.total)}</td>
+          <td data-label="Bags">${r.bags===null?"—":fmt(r.bags)}</td><td data-label="Loose (kg)">${fmt(r.loose)}</td><td data-label="Total kg">${fmt(r.kg)}</td>
+          <td data-label="Weight (${u})">${fmt(r.weight,3)}</td><td data-label="Adjusted (₹)">${fmt(r.adj)}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><td class="foot-blank"></td><td data-label="Total">Total (${list.length})</td><td class="foot-blank"></td><td data-label="Entered (₹)">${fmt(sumTotal)}</td>
+          <td data-label="Bags">${fmt(sumBags)}</td><td data-label="Loose (kg)">${fmt(sumLoose)}</td><td data-label="Total kg">${fmt(sumKg)}</td>
+          <td data-label="Weight (${u})">${fmt(sumKg/KG_PER[outUnit],3)}</td><td data-label="Adjusted (₹)">${fmt(sumAdj)}</td></tr></tfoot>
+      </table>` : `<div class="sum-empty">No completed items yet. Fill in a rate and total amount above.</div>`;
+
+    const d = sumAdj - sumTotal;
+    summaryEl.innerHTML = `
+      <div><div class="label">Total weight</div><div class="v">${valid ? fmt(sumKg/KG_PER[outUnit],3)+" "+OUT_LABEL[outUnit] : "—"}</div></div>
+      <div><div class="label">Entered total</div><div class="v">${valid ? inr(sumTotal) : "—"}</div></div>
+      <div><div class="label">Adjusted amount</div><div class="v">${valid ? inr(sumAdj) : "—"}</div></div>
+      <div><div class="label">Difference</div><div class="v ${d>0?"pos":d<0?"neg":""}">${valid ? (d>=0?"+":"")+inr(d) : "—"}</div></div>`;
+  }
+
+  let snapshot = {list: []};
+  let downloads = null;
+  const dlMsg = document.getElementById("dlMsg");
+  const dlPdf = document.getElementById("dlPdf");
+  const dlCsv = document.getElementById("dlCsv");
+
+  function stamp(){
+    const d = new Date();
+    return d.toISOString().slice(0,10);
+  }
+
+  async function saveFile(filename, data){
+    dlMsg.textContent = "";
+    try {
+      if(!downloads){
+        const blob = new Blob([data], {type: filename.endsWith(".pdf") ? "application/pdf" : "text/csv"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        dlMsg.textContent = "Downloaded. You can now share the file with anyone.";
+        return;
+      }
+      await downloads.save({filename, data});
+      dlMsg.textContent = "Saved. You can now share the file with anyone.";
+    } catch(err){
+      dlMsg.textContent = err && err.code === "declined" ? "Download cancelled." : "Could not save the file: " + ((err && err.message) || "unknown error");
+    }
+  }
+
+  function buildPdf(){
+    const s = snapshot, u = OUT_LABEL[s.unit];
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({orientation:"landscape", unit:"pt", format:"a4"});
+    doc.setFont("helvetica","bold"); doc.setFontSize(18);
+    doc.text("Bill Summary", 40, 44);
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    doc.text(`Date: ${stamp()}    Items: ${s.list.length}`, 40, 62);
+    doc.autoTable({
+      startY: 78,
+      head: [["#","Item","Rate","Entered (Rs.)","Bags","Loose (kg)","Total kg",`Weight (${u})`,"Adjusted (Rs.)"]],
+      body: s.list.map((r,i) => [i+1, r.name, `${fmt(r.rate)}/${r.rateUnit}`, fmt(r.total), r.bags===null?"-":fmt(r.bags), fmt(r.loose), fmt(r.kg), fmt(r.weight,3), fmt(r.adj)]),
+      foot: [["", `Total (${s.list.length} items)`, "", fmt(s.sumTotal), fmt(s.sumBags), fmt(s.sumLoose), fmt(s.sumKg), fmt(s.sumKg/KG_PER[s.unit],3), fmt(s.sumAdj)]],
+      theme: "grid",
+      styles: {fontSize:9, cellPadding:5},
+      headStyles: {fillColor:[11,122,110], textColor:255},
+      footStyles: {fillColor:[216,240,235], textColor:20, fontStyle:"bold"},
+      columnStyles: {0:{halign:"left"},1:{halign:"left"},2:{halign:"right"},3:{halign:"right"},4:{halign:"right"},5:{halign:"right"},6:{halign:"right"},7:{halign:"right"},8:{halign:"right"}},
+    });
+    return doc.output("arraybuffer");
+  }
+
+  function buildCsv(){
+    const s = snapshot, u = OUT_LABEL[s.unit];
+    const q = v => `"${String(v).replace(/"/g,'""')}"`;
+    const rows = [["#","Item","Rate","Rate per","Entered (Rs)","Bags","Loose (kg)","Total kg",`Weight (${u})`,"Adjusted (Rs)"]];
+    s.list.forEach((r,i) => rows.push([i+1, r.name, r.rate, r.rateUnit, r.total, r.bags===null?"":r.bags, r.loose, r.kg, +r.weight.toFixed(3), +r.adj.toFixed(2)]));
+    rows.push(["", `Total (${s.list.length} items)`, "", "", s.sumTotal, s.sumBags, s.sumLoose, s.sumKg, +(s.sumKg/KG_PER[s.unit]).toFixed(3), +s.sumAdj.toFixed(2)]);
+    return rows.map(r => r.map(q).join(",")).join("\n");
+  }
+
+  dlPdf.addEventListener("click", () => {
+    if(!snapshot.list.length || !window.jspdf){ dlMsg.textContent = "PDF tools did not load. Try the CSV download."; return; }
+    saveFile(`bill-summary-${stamp()}.pdf`, buildPdf());
+  });
+  dlCsv.addEventListener("click", () => {
+    if(!snapshot.list.length) return;
+    saveFile(`bill-summary-${stamp()}.csv`, buildCsv());
+  });
+
+  (async () => {
+    try {
+      downloads = await window.claude?.use?.("downloads");
+    } catch(_) { downloads = null; }
+    dlPdf.hidden = false; dlCsv.hidden = false;
+  })();
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest(".cp");
+    if(!b) return;
+    const done = () => { b.textContent = "Copied"; b.classList.add("done"); setTimeout(()=>{b.textContent="Copy";b.classList.remove("done");},1200); };
+    try { navigator.clipboard.writeText(b.dataset.copy).then(done, done); } catch(_) { done(); }
+  });
+
+  document.getElementById("seg").addEventListener("click", e => {
+    const b = e.target.closest("button[data-unit]");
+    if(!b) return;
+    outUnit = b.dataset.unit;
+    document.querySelectorAll("#seg button").forEach(x => x.setAttribute("aria-pressed", x===b));
+    recalc();
+  });
+
+  document.getElementById("ruleDemo").innerHTML = [111,112,113,114,116,119,49]
+    .map(x => `<span class="chip">${x} → <b>${customRound(x)}</b></span>`).join("");
+
+  document.getElementById("addRow").addEventListener("click", () => {
+    makeItem({item:"",rate:"",rateUnit:"quintal",total:"",bag:50,example:false});
+    recalc();
+  });
+
+  makeItem({item:"Wheat",rate:2500,rateUnit:"quintal",total:2777800,bag:50,example:true});
+  recalc();
+</script>
+
+</body>
+</html>
