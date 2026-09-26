@@ -4,3 +4,5 @@
 .dockerignore
 Dockerfile
 README.md
+data
+node_modules

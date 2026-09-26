@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bill Weight Calculator</title>
 <meta name="theme-color" content="#0b7a6e">
-<style>body{margin:0}</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -181,6 +181,25 @@
   .dl:disabled{opacity:.6;cursor:default;}
   .dl-msg{font-size:0.8rem;color:var(--ink-soft);padding:0 18px;}
   .dl-msg:not(:empty){padding-top:10px;}
+  .save-row{display:flex;flex-wrap:wrap;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line);}
+  .save-row input{
+    flex:1;min-width:180px;font:inherit;font-size:0.95rem;font-weight:500;color:var(--ink);
+    background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;
+  }
+  .save-row input:focus{outline:2px solid var(--primary);border-color:transparent;}
+  .hist-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;border-top:1px solid var(--line);}
+  .hist-name{font-weight:700;overflow-wrap:anywhere;}
+  .hist-meta{font-size:0.8rem;color:var(--ink-soft);margin-top:2px;}
+  .hist-actions{display:flex;gap:8px;}
+  .dl.danger{color:var(--down);border-color:var(--down);}
+  @media (max-width:640px){
+    .save-row{padding:12px 14px;}
+    .save-row .dl{flex:1;padding:11px 10px;}
+    .hist-row{padding:12px 14px;}
+    .hist-main{width:100%;}
+    .hist-actions{width:100%;}
+    .hist-actions .dl{flex:1;padding:11px 10px;}
+  }
   .sum-scroll{overflow-x:auto;}
   .sum-table{width:100%;border-collapse:collapse;min-width:760px;font-size:0.88rem;}
   .sum-table th{
@@ -284,8 +303,22 @@
         <button type="button" class="dl" id="dlCsv" hidden>Download CSV</button>
       </div>
     </div>
+    <div class="save-row" id="saveTools" hidden>
+      <input type="text" id="billName" placeholder="Bill name, e.g. Ram Lal 26 Sep" maxlength="80" aria-label="Bill name">
+      <button type="button" class="dl primary" id="saveBill">Save bill</button>
+      <button type="button" class="dl" id="newBill">New bill</button>
+    </div>
+    <div class="dl-msg" id="saveMsg" role="status"></div>
     <div class="dl-msg" id="dlMsg" role="status"></div>
     <div class="sum-scroll" id="sumTable"></div>
+  </section>
+
+  <section class="sum-card" id="historyCard" hidden>
+    <div class="sum-head">
+      <h2>Saved bills</h2>
+      <span class="count" id="histCount">0 saved</span>
+    </div>
+    <div id="history"></div>
   </section>
 </div>
 
@@ -356,6 +389,11 @@
   }
 
   function recalc(){
+    recalcNow();
+    scheduleSave();
+  }
+
+  function recalcNow(){
     let sumTotal = 0, sumAdj = 0, sumKg = 0, sumBags = 0, sumLoose = 0, valid = false;
     const list = [];
 
@@ -508,8 +546,7 @@
   document.getElementById("seg").addEventListener("click", e => {
     const b = e.target.closest("button[data-unit]");
     if(!b) return;
-    outUnit = b.dataset.unit;
-    document.querySelectorAll("#seg button").forEach(x => x.setAttribute("aria-pressed", x===b));
+    setUnit(b.dataset.unit);
     recalc();
   });
 
@@ -521,8 +558,129 @@
     recalc();
   });
 
-  makeItem({item:"Wheat",rate:2500,rateUnit:"quintal",total:2777800,bag:50,example:true});
-  recalc();
+  let apiOn = false, ready = false, saveTimer = null;
+  const billNameEl = document.getElementById("billName");
+  const saveMsg = document.getElementById("saveMsg");
+
+  async function api(method, url, body){
+    const res = await fetch(url, {
+      method, credentials: "same-origin",
+      headers: body ? {"Content-Type":"application/json"} : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(8000),
+    });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    return res.status === 204 ? null : res.json();
+  }
+
+  function getItems(){
+    return [...itemsEl.querySelectorAll(".item")].map(el => {
+      const id = el.dataset.id, v = k => document.getElementById(`${k}-${id}`).value;
+      return {item:v("item"), rate:v("rate"), rateUnit:v("rateunit"), total:v("total"), bag:v("bag")};
+    });
+  }
+
+  function setUnit(u){
+    outUnit = Object.hasOwn(KG_PER, u) ? u : "kg";
+    document.querySelectorAll("#seg button").forEach(x => x.setAttribute("aria-pressed", x.dataset.unit === outUnit));
+  }
+
+  function loadItems(items){
+    itemsEl.innerHTML = "";
+    (items.length ? items : [{}]).forEach(i => makeItem({
+      item:i.item || "", rate:i.rate ?? "", rateUnit:i.rateUnit || "quintal",
+      total:i.total ?? "", bag:i.bag ?? 50, example:false,
+    }));
+  }
+
+  function scheduleSave(){
+    if(!apiOn || !ready) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { api("PUT", "/api/draft", {items:getItems(), outUnit}).catch(() => {}); }, 600);
+  }
+
+  function renderHistory(bills){
+    document.getElementById("histCount").textContent = `${bills.length} saved`;
+    document.getElementById("history").innerHTML = bills.length ? bills.map(b => `
+      <div class="hist-row" data-id="${b.id}">
+        <div class="hist-main">
+          <div class="hist-name">${esc(b.name)}</div>
+          <div class="hist-meta">${new Date(b.created_at).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"})} · ${b.item_count} item${b.item_count===1?"":"s"} · ${inr(b.total)}</div>
+        </div>
+        <div class="hist-actions">
+          <button type="button" class="dl" data-act="open">Open</button>
+          <button type="button" class="dl danger" data-act="del">Delete</button>
+        </div>
+      </div>`).join("") : `<div class="sum-empty">Nothing saved yet. Use "Save bill" above.</div>`;
+  }
+
+  async function refreshHistory(){
+    try { renderHistory((await api("GET", "/api/bills")).bills); } catch(_) {}
+  }
+
+  document.getElementById("saveBill").addEventListener("click", async () => {
+    const items = getItems().filter(i => i.rate !== "" && i.total !== "");
+    if(!items.length){ saveMsg.textContent = "Add at least one item with a rate and total before saving."; return; }
+    const name = billNameEl.value.trim() || "Bill " + new Date().toLocaleDateString("en-IN");
+    try {
+      await api("POST", "/api/bills", {name, items, outUnit});
+      saveMsg.textContent = "Saved to your history.";
+      refreshHistory();
+    } catch(_) {
+      saveMsg.textContent = "Could not save. Check your connection and try again.";
+    }
+  });
+
+  document.getElementById("newBill").addEventListener("click", () => {
+    if(!confirm("Start a new bill? Anything you haven't saved will be cleared.")) return;
+    billNameEl.value = "";
+    saveMsg.textContent = "";
+    loadItems([]);
+    recalc();
+  });
+
+  document.getElementById("history").addEventListener("click", async e => {
+    const btn = e.target.closest("button[data-act]");
+    if(!btn) return;
+    const id = btn.closest(".hist-row").dataset.id;
+    try {
+      if(btn.dataset.act === "open"){
+        if(!confirm("Open this bill? Your current work will be replaced.")) return;
+        const bill = await api("GET", "/api/bills/" + id);
+        billNameEl.value = bill.name;
+        setUnit(bill.outUnit);
+        loadItems(bill.items);
+        recalc();
+        saveMsg.textContent = `Opened "${bill.name}".`;
+        window.scrollTo({top: 0, behavior: "smooth"});
+      } else {
+        if(!confirm("Delete this saved bill for good?")) return;
+        await api("DELETE", "/api/bills/" + id);
+        refreshHistory();
+      }
+    } catch(_) {
+      saveMsg.textContent = "That did not work. Try again.";
+    }
+  });
+
+  (async () => {
+    let state = null;
+    try { state = await api("GET", "/api/state"); apiOn = true; } catch(_) {}
+    const draft = state && state.draft;
+    if(draft && Array.isArray(draft.items) && draft.items.length){
+      setUnit(draft.outUnit);
+      loadItems(draft.items);
+    } else {
+      makeItem({item:"Wheat",rate:2500,rateUnit:"quintal",total:2777800,bag:50,example:true});
+    }
+    recalcNow();
+    if(apiOn){
+      document.getElementById("saveTools").hidden = false;
+      document.getElementById("historyCard").hidden = false;
+      renderHistory(state.bills);
+    }
+    ready = true;
+  })();
 </script>
 
 </body>

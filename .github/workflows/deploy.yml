@@ -13,6 +13,7 @@ env:
   IMAGE: calculator-for-accounts
   CONTAINER: calculator-for-accounts
   HOST_PORT: 8080
+  VOLUME: calculator-data
 
 jobs:
   deploy:
@@ -27,7 +28,7 @@ jobs:
       - name: Replace running container
         run: |
           docker rm -f $CONTAINER 2>/dev/null || true
-          docker run -d --name $CONTAINER --restart unless-stopped -p $HOST_PORT:80 $IMAGE:latest
+          docker run -d --name $CONTAINER --restart unless-stopped -p $HOST_PORT:3000 -v $VOLUME:/data $IMAGE:latest
 
       - name: Health check
         run: curl -fsS --retry 10 --retry-delay 2 --retry-all-errors http://localhost:$HOST_PORT/ > /dev/null
