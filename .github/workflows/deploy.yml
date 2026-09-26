@@ -30,7 +30,7 @@ jobs:
           docker run -d --name $CONTAINER --restart unless-stopped -p $HOST_PORT:80 $IMAGE:latest
 
       - name: Health check
-        run: curl -fsS --retry 5 --retry-delay 2 --retry-connrefused http://localhost:$HOST_PORT/ > /dev/null
+        run: curl -fsS --retry 10 --retry-delay 2 --retry-all-errors http://localhost:$HOST_PORT/ > /dev/null
 
       - name: Remove old images
         run: docker image prune -f
